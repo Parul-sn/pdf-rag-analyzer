@@ -80,7 +80,7 @@ def qa_loop(retriever: Retriever) -> None:
         if question.lower() in {"exit", "quit", "q"}:
             break
 
-        results = retriever.retrieve(question, k=4)
+        results = retriever.retrieve_hybrid(question, k=4)
         if not results:
             print("A: No relevant chunks found.\n")
             continue

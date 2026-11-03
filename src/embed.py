@@ -53,11 +53,25 @@ def build_store(chunks: List[tuple], db_path: str = DB_PATH) -> int:
             )
             """
         )
+                # --- NEW: FTS5 full-text index (empty for now) ---
+        db.execute(
+            """
+            CREATE VIRTUAL TABLE fts_chunks USING fts5(
+                chunk_text,
+                tokenize='unicode61'
+            )
+            """
+        )
 
-        for (text, source), vec in zip(normalized, embeddings):
+        for i, ((text, source), vec) in enumerate(zip(normalized, embeddings)):
+            rowid = i + 1
             db.execute(
-                "INSERT INTO vec_chunks(embedding, chunk_text, source) VALUES (?, ?, ?)",
-                (sqlite_vec.serialize_float32(vec), text, source),
+                "INSERT INTO vec_chunks(rowid, embedding, chunk_text, source) VALUES (?, ?, ?, ?)",
+                (rowid, sqlite_vec.serialize_float32(vec), text, source),
+            )
+            db.execute(
+                "INSERT INTO fts_chunks(rowid, chunk_text) VALUES (?, ?)",
+                (rowid, text),
             )
         db.commit()
 

@@ -107,7 +107,7 @@ else:
         with st.chat_message("assistant"):
             with st.spinner("Retrieving and generating answer..."):
                 retriever = get_retriever(st.session_state.get("index_version", 0))
-                results = retriever.retrieve(question, k=4)
+                results = retriever.retrieve_hybrid(question, k=4)
                 if not results:
                     answer = "No relevant chunks found for that question."
                     sources = []
