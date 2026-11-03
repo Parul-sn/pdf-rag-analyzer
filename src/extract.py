@@ -1,9 +1,14 @@
 from pypdf import PdfReader
 
 
-def extract_text_from_pdf(pdf_path: str) -> list[str]:
-    """Return a list of text strings, one per page (pages with no text are skipped)."""
-    reader = PdfReader(pdf_path)
+def extract_text_from_pdf(pdf_source) -> list[str]:
+    """Return a list of page texts.
+
+    pdf_source can be either:
+    - a file path (str) — used by the CLI
+    - a file-like object (Streamlit UploadedFile, BytesIO) — used by the UI
+    """
+    reader = PdfReader(pdf_source)
     pages: list[str] = []
     for page in reader.pages:
         text = page.extract_text()

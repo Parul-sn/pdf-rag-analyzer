@@ -5,3 +5,4 @@ sqlite-vec
 groq
 python-dotenv
 fonttools
+streamlit
