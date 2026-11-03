@@ -1,0 +1,6 @@
+pypdf
+numpy
+fastembed
+sqlite-vec
+groq
+python-dotenv
