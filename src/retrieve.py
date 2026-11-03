@@ -22,14 +22,13 @@ class Retriever:
         self.db = _open_db(db_path)
         self.model = TextEmbedding(model_name=model_name)
 
-    def retrieve(self, query: str, k: int = 3) -> List[Tuple[str, float]]:
-        """Return up to k (chunk_text, distance) tuples, closest first."""
-        # Embed the query (fastembed returns a generator of np arrays)
+    def retrieve(self, query: str, k: int = 3) -> List[Tuple[str, str, float]]:
+        """Return up to k (chunk_text, source, distance) tuples, closest first."""
         query_vec = next(self.model.embed([query])).tolist()
 
         rows = self.db.execute(
             """
-            SELECT chunk_text, distance
+            SELECT chunk_text, source, distance
             FROM vec_chunks
             WHERE embedding MATCH ?
             ORDER BY distance
@@ -38,7 +37,7 @@ class Retriever:
             (sqlite_vec.serialize_float32(query_vec), k),
         ).fetchall()
 
-        return [(text, float(dist)) for text, dist in rows]
+        return [(text, src or "", float(dist)) for text, src, dist in rows]
 
     def close(self):
         self.db.close()
@@ -51,8 +50,8 @@ if __name__ == "__main__":
 
     print(f"Query: {query}")
     print(f"Got {len(results)} result(s).\n")
-    for i, (text, dist) in enumerate(results, 1):
-        print(f"--- Result {i} (distance={dist:.4f}) ---")
+    for i, (text, source, dist) in enumerate(results, 1):
+        print(f"--- Result {i} [{source}] (distance={dist:.4f}) ---")
         print(text[:400])
         print()
     r.close()

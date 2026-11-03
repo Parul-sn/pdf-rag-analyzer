@@ -18,22 +18,29 @@ def _open_db(db_path: str = DB_PATH) -> sqlite3.Connection:
     return db
 
 
-def build_store(chunks: List[str], db_path: str = DB_PATH) -> int:
-    """Embed chunks and store them in a fresh sqlite-vec table. Returns row count."""
-    # Start clean every run so we don't duplicate rows while learning.
+def build_store(chunks: List[tuple], db_path: str = DB_PATH) -> int:
+    """
+    Embed (chunk_text, source) pairs and store them in a fresh sqlite-vec table.
+    Returns the number of rows stored.
+    """
     if os.path.exists(db_path):
         os.remove(db_path)
+
+    # Accept either plain strings (backward-compat) or (text, source) tuples.
+    normalized = [
+        (c, "") if isinstance(c, str) else (c[0], c[1])
+        for c in chunks
+    ]
 
     print(f"Loading embedding model: {MODEL_NAME} (first run downloads ~130 MB)...")
     model = TextEmbedding(model_name=MODEL_NAME)
 
-    print(f"Embedding {len(chunks)} chunk(s)...")
-    # fastembed yields numpy arrays (float32) — convert to plain lists
-    embeddings = [vec.tolist() for vec in model.embed(chunks)]
+    texts = [text for text, _ in normalized]
+    print(f"Embedding {len(texts)} chunk(s)...")
+    embeddings = [vec.tolist() for vec in model.embed(texts)]
 
     db = _open_db(db_path)
     try:
-        # Determine dimension from the first vector
         dim = len(embeddings[0])
         print(f"Embedding dimension: {dim}")
 
@@ -41,16 +48,16 @@ def build_store(chunks: List[str], db_path: str = DB_PATH) -> int:
             f"""
             CREATE VIRTUAL TABLE vec_chunks USING vec0(
                 embedding float[{dim}],
-                chunk_text text
+                chunk_text text,
+                source text
             )
             """
         )
 
-        # Insert chunk-by-chunk using sqlite_vec's float32 serializer
-        for chunk, vec in zip(chunks, embeddings):
+        for (text, source), vec in zip(normalized, embeddings):
             db.execute(
-                "INSERT INTO vec_chunks(embedding, chunk_text) VALUES (?, ?)",
-                (sqlite_vec.serialize_float32(vec), chunk),
+                "INSERT INTO vec_chunks(embedding, chunk_text, source) VALUES (?, ?, ?)",
+                (sqlite_vec.serialize_float32(vec), text, source),
             )
         db.commit()
 
@@ -61,10 +68,21 @@ def build_store(chunks: List[str], db_path: str = DB_PATH) -> int:
 
 
 if __name__ == "__main__":
+    from pathlib import Path
     from extract import extract_text_from_pdf
     from chunk import chunk_text
 
-    pages = extract_text_from_pdf("data/sample.pdf")
-    chunks = chunk_text(pages, chunk_size=1000, overlap=100)
-    n = build_store(chunks)
+    pdf_paths = sorted(Path("data").glob("*.pdf"))
+    if not pdf_paths:
+        raise SystemExit("No PDFs found in data/. Drop at least one .pdf file there.")
+
+    all_chunks: list[tuple[str, str]] = []
+    for pdf_path in pdf_paths:
+        pages = extract_text_from_pdf(str(pdf_path))
+        chunks = chunk_text(pages, chunk_size=1000, overlap=100)
+        print(f"  {pdf_path.name}: {len(pages)} page(s) -> {len(chunks)} chunk(s)")
+        all_chunks.extend((c, pdf_path.name) for c in chunks)
+
+    print(f"\nTotal: {len(all_chunks)} chunk(s) from {len(pdf_paths)} PDF(s)\n")
+    n = build_store(all_chunks)
     print(f"Stored {n} chunk(s) in {DB_PATH}")

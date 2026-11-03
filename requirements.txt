@@ -4,3 +4,4 @@ fastembed
 sqlite-vec
 groq
 python-dotenv
+fonttools
