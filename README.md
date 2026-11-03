@@ -49,7 +49,7 @@ data/sample.pdf
 ### 1. Clone and enter
 
 ```bash
-git clone https://github.com/<your-username>/pdf-rag-analyzer.git
+git clone https://github.com/Parul-sn/pdf-rag-analyzer.git
 cd pdf-rag-analyzer
 ```
 
